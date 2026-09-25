@@ -2,11 +2,12 @@
   "name": "அஇஅதிமுக தேர்தல் மேலாண்மை - பூத் 257",
   "short_name": "ADMK பூத் 257",
   "description": "101 தாராபுரம் (தனி) தொகுதி - பூத் 257 தேர்தல் மேலாண்மை செயலி",
+  "id": "/admk-booth-257/",
   "start_url": "./app.html",
   "display": "standalone",
   "background_color": "#0F172A",
   "theme_color": "#0F172A",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "lang": "ta",
   "icons": [
     {
@@ -22,6 +23,17 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
-  "screenshots": []
+  "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "ADMK Booth 257 App"
+    }
+  ],
+  "categories": [
+    "productivity",
+    "utilities"
+  ]
 }
