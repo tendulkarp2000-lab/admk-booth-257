@@ -64,10 +64,17 @@
             <button @click="openManualModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
                 <i data-lucide="user-plus" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">குடும்பம் சேர்</span>
             </button>
-            <button @click="exportCSV()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <button @click="exportJSON()" title="தரவுகள் பேக்கப் (Backup)" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1">
+                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">பேக்கப்</span>
             </button>
-            <button @click="resetData()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1.5 rounded-lg text-xs">
+            <label title="தரவுகள் இறக்குமதி (Sync/Restore)" class="bg-purple-600 hover:bg-purple-700 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer">
+                <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">Sync</span>
+                <input type="file" @change="importJSON($event)" accept=".json" class="hidden">
+            </label>
+            <button @click="exportCSV()" title="CSV Export" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            </button>
+            <button @click="resetData()" title="Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1.5 rounded-lg text-xs">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             </button>
         </div>

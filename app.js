@@ -670,7 +670,44 @@
                 return this.families.filter(f => f.id === this.selectedPrintFamilyId);
             },
 
-            // ===== RESET & EXPORT =====
+            exportJSON() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    voters: this.voters,
+                    families: this.families,
+                    oorus: this.oorus
+                }, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", "ADMK_Booth_257_Data_Backup.json");
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                this.notify('பேக்கப் ஃபைல் டவுன்லோட் செய்யப்பட்டது!');
+            },
+
+            importJSON(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.families && data.voters && data.oorus) {
+                            this.voters = data.voters;
+                            this.families = data.families;
+                            this.oorus = data.oorus;
+                            this.persist();
+                            this.notify(`வெற்றிகரமாக ${data.families.length} குடும்பங்கள் ஆப்பிற்குள் கொண்டுவரப்பட்டன!`);
+                        } else {
+                            alert('செல்லுபடியாகாத பேக்கப் ஃபைல்!');
+                        }
+                    } catch (err) {
+                        alert('கோப்பைப் படிப்பதில் பிழை ஏற்பட்டது!');
+                    }
+                };
+                reader.readAsText(file);
+            },
+
             resetData() {
                 if (confirm('எச்சரிக்கை: நீங்கள் உருவாக்கிய அனைத்து குடும்பத் தரவுகளையும் அழித்து, துவக்க நிலைக்கு மாற்ற விரும்புகிறீர்களா?')) {
                     localStorage.removeItem(ACTIVE_KEY_VOTERS);
