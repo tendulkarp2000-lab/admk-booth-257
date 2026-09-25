@@ -1,12 +1,12 @@
-// ADMK Election Management System - Real-Time Cloud Sync Engine
-// v4.0 - Automatic Real-Time Cloud Synchronization Across All Devices
+// ADMK Election Management System - Ultra-Fast Compact Cloud Sync Engine
+// v4.1 - Lightning-fast UTF-8 Compact Real-Time Cloud Sync across all devices
 (function () {
     const ACTIVE_KEY_VOTERS = 'admk_booth_257_voters_master';
     const ACTIVE_KEY_FAMILIES = 'admk_booth_257_families_master';
     const ACTIVE_KEY_OORUS = 'admk_booth_257_oorus_master';
 
     // REAL-TIME GLOBAL CLOUD DATABASE ENDPOINT
-    const CLOUD_ENDPOINT = 'https://api.restful-api.dev/objects/ff808181a09d98f701a0d776116d1048';
+    const CLOUD_ENDPOINT = 'https://api.restful-api.dev/objects/ff808181a09d98f701a0d77bfc4e105e';
 
     const VISIT_STATUS = {
         NOT_VISITED: 'not_visited',
@@ -123,23 +123,53 @@
             showToast: false,
 
             async init() {
-                console.log(`ADMK App v4.0 Real-Time Cloud Engine Initializing...`);
-                // First load from cloud database instantly
+                console.log(`ADMK App v4.1 Ultra-Fast Cloud Engine Initializing...`);
+                // First sync voters state with families
+                this.rebuildVoterMappings();
+
+                // Fetch from cloud DB instantly
                 await this.fetchFromCloud();
-                
-                // Set up background auto-polling every 12 seconds for real-time cloud sync
+
+                // Auto poll every 10 seconds for real-time live sync across devices
                 setInterval(() => {
                     this.fetchFromCloud(true);
-                }, 12000);
+                }, 10000);
+            },
+
+            rebuildVoterMappings() {
+                // Reset all voter family mappings to base state
+                this.voters.forEach(v => {
+                    v.familyId = null;
+                    v.isHead = false;
+                    v.ooru = '';
+                    v.caste = '';
+                    v.mobile = '';
+                });
+
+                // Apply mapped families
+                this.families.forEach(f => {
+                    if (f.memberSlNos && Array.isArray(f.memberSlNos)) {
+                        f.memberSlNos.forEach(sl => {
+                            const v = this.getVoterBySl(sl);
+                            if (v) {
+                                v.familyId = f.id;
+                                v.isHead = (sl === f.headSlNo);
+                                v.ooru = f.ooru;
+                                if (f.caste) v.caste = f.caste;
+                                if (f.mobile) v.mobile = f.mobile;
+                            }
+                        });
+                    }
+                });
             },
 
             persist() {
+                this.rebuildVoterMappings();
                 saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
-                // Push to central Cloud Database instantly whenever any edit happens
                 this.pushToCloud();
             },
 
-            // REALTIME CLOUD DB GET & PUT ENGINE
+            // LIGHTNING FAST CLOUD SYNC ENGINE (Only syncs families + oorus to ensure instant UTF-8 sync)
             async fetchFromCloud(isBackground = false) {
                 if (!isBackground) this.isCloudSyncing = true;
                 try {
@@ -148,15 +178,13 @@
                         const cloudObj = await response.json();
                         if (cloudObj && cloudObj.data) {
                             const cData = cloudObj.data;
-                            if (cData.families && Array.isArray(cData.families) && cData.families.length > 0) {
+                            if (cData.families && Array.isArray(cData.families)) {
                                 this.families = cData.families;
-                            }
-                            if (cData.voters && Array.isArray(cData.voters) && cData.voters.length > 0) {
-                                this.voters = cData.voters;
                             }
                             if (cData.oorus && Array.isArray(cData.oorus) && cData.oorus.length > 0) {
                                 this.oorus = cData.oorus;
                             }
+                            this.rebuildVoterMappings();
                             saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
                             this.isCloudOnline = true;
                             const now = new Date();
@@ -177,7 +205,6 @@
                     const payload = {
                         name: "admk_booth_257_cloud_master",
                         data: {
-                            voters: this.voters,
                             families: this.families,
                             oorus: this.oorus,
                             updatedAt: new Date().toISOString()
@@ -185,7 +212,7 @@
                     };
                     const response = await fetch(CLOUD_ENDPOINT, {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json; charset=utf-8' },
                         body: JSON.stringify(payload)
                     });
                     if (response.ok) {
@@ -257,7 +284,7 @@
                 fam.visitStatus = order[(currentIdx + 1) % order.length];
                 if (fam.visitStatus === 'visited') fam.visitedAt = new Date().toISOString();
                 this.persist();
-                this.notify(`குடும்பம் ${famId}: "${this.getVisitStatusLabel(fam.visitStatus)}" (ஆன்லைனில் பதிவானது!)`);
+                this.notify(`குடும்பம் ${famId}: "${this.getVisitStatusLabel(fam.visitStatus)}" (ஆன்லைனில் மாறினது!)`);
             },
 
             setVisitStatus(famId, status) {
@@ -266,7 +293,7 @@
                 fam.visitStatus = status;
                 if (status === 'visited') fam.visitedAt = new Date().toISOString();
                 this.persist();
-                this.notify(`நிலை ஆன்லைனில் மாற்றப்பட்டது: ${this.getVisitStatusLabel(status)}`);
+                this.notify(`நிலை ஆன்லைனில் மாறினது: ${this.getVisitStatusLabel(status)}`);
             },
 
             setSupportStatus(famId, status) {
@@ -497,17 +524,6 @@
                     visitedAt: null
                 };
 
-                this.manualForm.selectedSlNos.forEach(sl => {
-                    const v = this.getVoterBySl(sl);
-                    if (v) {
-                        v.familyId = newFamId;
-                        v.ooru = selectedOoru;
-                        v.isHead = (sl === this.manualForm.headSlNo);
-                        if (this.manualForm.caste) v.caste = this.manualForm.caste;
-                        if (this.manualForm.mobile) v.mobile = this.manualForm.mobile;
-                    }
-                });
-
                 this.families.push(newFamily);
                 this.persist();
                 this.showManualModal = false;
@@ -526,11 +542,6 @@
                 const v = this.getVoterBySl(slNo);
                 if (fam && v && !fam.memberSlNos.includes(slNo)) {
                     fam.memberSlNos.push(slNo);
-                    v.familyId = fam.id;
-                    v.ooru = fam.ooru;
-                    v.isHead = false;
-                    if (fam.caste) v.caste = fam.caste;
-                    if (fam.mobile) v.mobile = fam.mobile;
                     this.persist();
                     this.notify(`${v.name} (வரிசை ${slNo}) குடும்பத்தில் சேர்க்கப்பட்டு ஆன்லைனில் புதுப்பிக்கப்பட்டது!`);
                 }
@@ -555,15 +566,6 @@
                     fam.caste = this.editingFamily.caste.trim();
                     fam.mobile = this.editingFamily.mobile.trim();
                     fam.headSlNo = this.editingFamily.headSlNo;
-                    fam.memberSlNos.forEach(sl => {
-                        const v = this.getVoterBySl(sl);
-                        if (v) {
-                            v.ooru = newOoru;
-                            v.isHead = (sl === fam.headSlNo);
-                            v.caste = fam.caste;
-                            v.mobile = fam.mobile;
-                        }
-                    });
                     this.persist();
                     this.showEditFamilyModal = false;
                     this.notify(`குடும்ப விவரங்கள் (${fam.id}) ஆன்லைனில் புதுப்பிக்கப்பட்டன!`);
@@ -576,10 +578,6 @@
                 const headVoter = this.getVoterBySl(fam.headSlNo);
                 const headName = headVoter ? headVoter.name : 'Unknown';
                 if (!confirm(`எச்சரிக்கை: குடும்பம் ${famId} (${headName} - ${fam.memberSlNos.length} உறுப்பினர்கள்) நீக்கப்படவுள்ளது.\n\nதொடரவா?`)) return;
-                fam.memberSlNos.forEach(sl => {
-                    const v = this.getVoterBySl(sl);
-                    if (v) { v.familyId = null; v.isHead = false; v.ooru = ''; }
-                });
                 this.families = this.families.filter(f => f.id !== famId);
                 this.persist();
                 this.notify(`குடும்பம் ${famId} நீக்கப்பட்டது. ${fam.memberSlNos.length} வாக்காளர்கள் ஆன்லைனில் மீட்கப்பட்டனர்.`);
@@ -590,14 +588,8 @@
                 const fam = this.families.find(f => f.id === famId);
                 if (fam) {
                     fam.memberSlNos = fam.memberSlNos.filter(s => s !== slNo);
-                    const v = this.getVoterBySl(slNo);
-                    if (v) { v.familyId = null; v.isHead = false; v.ooru = ''; }
                     if (fam.headSlNo === slNo) {
                         fam.headSlNo = fam.memberSlNos[0] || null;
-                        if (fam.headSlNo) {
-                            const newHead = this.getVoterBySl(fam.headSlNo);
-                            if (newHead) newHead.isHead = true;
-                        }
                     }
                     if (fam.memberSlNos.length === 0) {
                         this.families = this.families.filter(f => f.id !== famId);
