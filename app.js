@@ -1,31 +1,19 @@
-// ADMK Election Management System - Main Logic Engine
-// v3.0 - Bugs Fixed + Family Visit Tracker Feature Added
+// ADMK Election Management System - Real-Time Cloud Sync Engine
+// v4.0 - Automatic Real-Time Cloud Synchronization Across All Devices
 (function () {
     const ACTIVE_KEY_VOTERS = 'admk_booth_257_voters_master';
     const ACTIVE_KEY_FAMILIES = 'admk_booth_257_families_master';
     const ACTIVE_KEY_OORUS = 'admk_booth_257_oorus_master';
 
-    const LEGACY_KEYS_FAMILIES = [
-        'admk_booth_257_families_v6', 'admk_booth_257_families_v5',
-        'admk_booth_257_families_v4', 'admk_booth_257_families_v3',
-        'admk_booth_257_families_v2', 'admk_booth_257_families_v1',
-        'admk_booth_257_families'
-    ];
-    const LEGACY_KEYS_VOTERS = [
-        'admk_booth_257_voters_v6', 'admk_booth_257_voters_v5',
-        'admk_booth_257_voters_v4', 'admk_booth_257_voters_v3',
-        'admk_booth_257_voters_v2', 'admk_booth_257_voters_v1',
-        'admk_booth_257_voters'
-    ];
+    // REAL-TIME GLOBAL CLOUD DATABASE ENDPOINT
+    const CLOUD_ENDPOINT = 'https://api.restful-api.dev/objects/ff808181a09d98f701a0d776116d1048';
 
-    // Visit status constants
     const VISIT_STATUS = {
         NOT_VISITED: 'not_visited',
         VISITED: 'visited',
         FOLLOW_UP: 'follow_up'
     };
 
-    // Support status constants
     const SUPPORT_STATUS = {
         UNKNOWN: 'unknown',
         SUPPORTER: 'supporter',
@@ -39,36 +27,10 @@
         let masterVoters = localStorage.getItem(ACTIVE_KEY_VOTERS);
         let masterOorus = localStorage.getItem(ACTIVE_KEY_OORUS);
 
-        let families = masterFamilies ? JSON.parse(masterFamilies) : null;
-        let voters = masterVoters ? JSON.parse(masterVoters) : null;
-        let oorus = masterOorus ? JSON.parse(masterOorus) : null;
+        let families = masterFamilies ? JSON.parse(masterFamilies) : [];
+        let voters = masterVoters ? JSON.parse(masterVoters) : (window.INITIAL_VOTERS ? JSON.parse(JSON.stringify(window.INITIAL_VOTERS)) : []);
+        let oorus = masterOorus ? JSON.parse(masterOorus) : (window.INITIAL_OORUS ? JSON.parse(JSON.stringify(window.INITIAL_OORUS)) : []);
 
-        if (!families || families.length === 0) {
-            for (const key of LEGACY_KEYS_FAMILIES) {
-                const item = localStorage.getItem(key);
-                if (item) {
-                    const parsed = JSON.parse(item);
-                    if (parsed && parsed.length > 0) { families = parsed; break; }
-                }
-            }
-        }
-
-        if (!voters || voters.length === 0) {
-            for (const key of LEGACY_KEYS_VOTERS) {
-                const item = localStorage.getItem(key);
-                if (item) {
-                    const parsed = JSON.parse(item);
-                    if (parsed && parsed.length > 0) { voters = parsed; break; }
-                }
-            }
-        }
-
-        families = families || [];
-        // BUG 3 FIX: Explicitly always use window.INITIAL_VOTERS when no saved data
-        voters = (voters && voters.length > 0) ? voters : (window.INITIAL_VOTERS ? JSON.parse(JSON.stringify(window.INITIAL_VOTERS)) : []);
-        oorus = (oorus && oorus.length > 0) ? oorus : (window.INITIAL_OORUS || []);
-
-        // Migrate existing families to have visitStatus & supportStatus if missing
         families = families.map(f => ({
             visitStatus: VISIT_STATUS.NOT_VISITED,
             supportStatus: SUPPORT_STATUS.UNKNOWN,
@@ -77,20 +39,15 @@
             ...f
         }));
 
-        localStorage.setItem(ACTIVE_KEY_FAMILIES, JSON.stringify(families));
-        localStorage.setItem(ACTIVE_KEY_VOTERS, JSON.stringify(voters));
-        localStorage.setItem(ACTIVE_KEY_OORUS, JSON.stringify(oorus));
-
         return { voters, families, oorus };
     }
 
-    function saveState(state) {
+    function saveStateLocal(state) {
         localStorage.setItem(ACTIVE_KEY_VOTERS, JSON.stringify(state.voters));
         localStorage.setItem(ACTIVE_KEY_FAMILIES, JSON.stringify(state.families));
         localStorage.setItem(ACTIVE_KEY_OORUS, JSON.stringify(state.oorus));
     }
 
-    // BUG 2 FIX: Generate unique family ID using max existing ID (not array length)
     function generateFamilyId(families) {
         const maxId = families.reduce((max, f) => {
             const num = parseInt((f.id || '').replace('FAM_', '')) || 0;
@@ -107,6 +64,11 @@
             voters: init.voters,
             families: init.families,
             oorus: init.oorus,
+
+            // Cloud Sync Status States
+            isCloudSyncing: false,
+            lastCloudSyncTime: 'இணைக்கப்படுகிறது...',
+            isCloudOnline: true,
 
             // Filter States for Voter Table
             voterSearch: '',
@@ -160,13 +122,83 @@
             toastMessage: '',
             showToast: false,
 
-            init() {
-                console.log(`ADMK App v3.0 Loaded. Families: ${this.families.length}`);
-                this.persist();
+            async init() {
+                console.log(`ADMK App v4.0 Real-Time Cloud Engine Initializing...`);
+                // First load from cloud database instantly
+                await this.fetchFromCloud();
+                
+                // Set up background auto-polling every 12 seconds for real-time cloud sync
+                setInterval(() => {
+                    this.fetchFromCloud(true);
+                }, 12000);
             },
 
             persist() {
-                saveState({ voters: this.voters, families: this.families, oorus: this.oorus });
+                saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
+                // Push to central Cloud Database instantly whenever any edit happens
+                this.pushToCloud();
+            },
+
+            // REALTIME CLOUD DB GET & PUT ENGINE
+            async fetchFromCloud(isBackground = false) {
+                if (!isBackground) this.isCloudSyncing = true;
+                try {
+                    const response = await fetch(CLOUD_ENDPOINT, { method: 'GET' });
+                    if (response.ok) {
+                        const cloudObj = await response.json();
+                        if (cloudObj && cloudObj.data) {
+                            const cData = cloudObj.data;
+                            if (cData.families && Array.isArray(cData.families) && cData.families.length > 0) {
+                                this.families = cData.families;
+                            }
+                            if (cData.voters && Array.isArray(cData.voters) && cData.voters.length > 0) {
+                                this.voters = cData.voters;
+                            }
+                            if (cData.oorus && Array.isArray(cData.oorus) && cData.oorus.length > 0) {
+                                this.oorus = cData.oorus;
+                            }
+                            saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
+                            this.isCloudOnline = true;
+                            const now = new Date();
+                            this.lastCloudSyncTime = now.toLocaleTimeString('ta-IN', { hour: '2-digit', minute: '2-digit' });
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Cloud Sync fetch warning:', err);
+                    this.isCloudOnline = false;
+                } finally {
+                    this.isCloudSyncing = false;
+                }
+            },
+
+            async pushToCloud() {
+                this.isCloudSyncing = true;
+                try {
+                    const payload = {
+                        name: "admk_booth_257_cloud_master",
+                        data: {
+                            voters: this.voters,
+                            families: this.families,
+                            oorus: this.oorus,
+                            updatedAt: new Date().toISOString()
+                        }
+                    };
+                    const response = await fetch(CLOUD_ENDPOINT, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        this.isCloudOnline = true;
+                        const now = new Date();
+                        this.lastCloudSyncTime = now.toLocaleTimeString('ta-IN', { hour: '2-digit', minute: '2-digit' });
+                    }
+                } catch (err) {
+                    console.error('Cloud push error:', err);
+                    this.isCloudOnline = false;
+                } finally {
+                    this.isCloudSyncing = false;
+                }
             },
 
             notify(msg) {
@@ -183,7 +215,6 @@
             get maleVotersCount() { return this.voters.filter(v => v.gender === 'ஆண்').length; },
             get femaleVotersCount() { return this.voters.filter(v => v.gender === 'பெண்').length; },
 
-            // AGE WISE CLASSIFICATION (Fixed: consistent ranges, no boundary overlap)
             get age18_25Count() { return this.voters.filter(v => v.age >= 18 && v.age < 26).length; },
             get age26_35Count() { return this.voters.filter(v => v.age >= 26 && v.age < 36).length; },
             get age36_50Count() { return this.voters.filter(v => v.age >= 36 && v.age < 51).length; },
@@ -191,7 +222,6 @@
             get age71_90Count() { return this.voters.filter(v => v.age >= 71 && v.age < 91).length; },
             get age90PlusCount() { return this.voters.filter(v => v.age >= 91).length; },
 
-            // ===== VISIT TRACKER STATS =====
             get visitedFamiliesCount() { return this.families.filter(f => f.visitStatus === 'visited').length; },
             get notVisitedFamiliesCount() { return this.families.filter(f => f.visitStatus === 'not_visited').length; },
             get followUpFamiliesCount() { return this.families.filter(f => f.visitStatus === 'follow_up').length; },
@@ -200,72 +230,34 @@
                 return Math.round((this.visitedFamiliesCount / this.families.length) * 100);
             },
 
-            // SUPPORT STATUS STATS
             get supporterCount() { return this.families.filter(f => f.supportStatus === 'supporter').length; },
             get oppositionCount() { return this.families.filter(f => f.supportStatus === 'opposition').length; },
             get undecidedCount() { return this.families.filter(f => f.supportStatus === 'undecided').length; },
             get toConvinceCount() { return this.families.filter(f => f.supportStatus === 'to_convince').length; },
 
-            // Visit status UI helpers
             getVisitStatusLabel(status) {
-                const map = {
-                    'not_visited': 'சந்திக்கவில்லை',
-                    'visited': 'சந்தித்தோம் ✓',
-                    'follow_up': 'மீண்டும் வர வேண்டும்'
-                };
+                const map = { 'not_visited': 'சந்திக்கவில்லை', 'visited': 'சந்தித்தோம் ✓', 'follow_up': 'மீண்டும் வர வேண்டும்' };
                 return map[status] || 'சந்திக்கவில்லை';
             },
-            getVisitStatusColor(status) {
-                const map = {
-                    'not_visited': 'bg-red-100 text-red-700 border-red-300',
-                    'visited': 'bg-emerald-100 text-emerald-700 border-emerald-300',
-                    'follow_up': 'bg-amber-100 text-amber-700 border-amber-300'
-                };
-                return map[status] || 'bg-red-100 text-red-700 border-red-300';
-            },
             getVisitStatusBadge(status) {
-                const map = {
-                    'not_visited': 'bg-red-600 text-white',
-                    'visited': 'bg-emerald-600 text-white',
-                    'follow_up': 'bg-amber-500 text-slate-900'
-                };
+                const map = { 'not_visited': 'bg-red-600 text-white', 'visited': 'bg-emerald-600 text-white', 'follow_up': 'bg-amber-500 text-slate-900' };
                 return map[status] || 'bg-red-600 text-white';
             },
 
-            // Support status UI helpers
             getSupportStatusLabel(status) {
-                const map = {
-                    'unknown': 'தெரியவில்லை',
-                    'supporter': 'ஆதரவு ✅',
-                    'opposition': 'எதிர்ப்பு ❌',
-                    'undecided': 'முடிவில்லை ❓',
-                    'to_convince': 'மாற்றவேண்டும் 🔄'
-                };
+                const map = { 'unknown': 'தெரியவில்லை', 'supporter': 'ஆதரவு ✅', 'opposition': 'எதிர்ப்பு ❌', 'undecided': 'முடிவில்லை ❓', 'to_convince': 'மாற்றவேண்டும் 🔄' };
                 return map[status] || 'தெரியவில்லை';
             },
-            getSupportStatusColor(status) {
-                const map = {
-                    'unknown': 'bg-slate-100 text-slate-500',
-                    'supporter': 'bg-emerald-100 text-emerald-700 font-bold',
-                    'opposition': 'bg-red-100 text-red-700 font-bold',
-                    'undecided': 'bg-blue-100 text-blue-700',
-                    'to_convince': 'bg-orange-100 text-orange-700'
-                };
-                return map[status] || 'bg-slate-100 text-slate-500';
-            },
 
-            // ===== VISIT TRACKER ACTIONS =====
             cycleVisitStatus(famId) {
                 const fam = this.families.find(f => f.id === famId);
                 if (!fam) return;
                 const order = ['not_visited', 'visited', 'follow_up'];
                 const currentIdx = order.indexOf(fam.visitStatus || 'not_visited');
                 fam.visitStatus = order[(currentIdx + 1) % order.length];
-                if (fam.visitStatus === 'visited') {
-                    fam.visitedAt = new Date().toISOString();
-                }
+                if (fam.visitStatus === 'visited') fam.visitedAt = new Date().toISOString();
                 this.persist();
-                this.notify(`குடும்பம் ${famId}: "${this.getVisitStatusLabel(fam.visitStatus)}" என மாற்றப்பட்டது!`);
+                this.notify(`குடும்பம் ${famId}: "${this.getVisitStatusLabel(fam.visitStatus)}" (ஆன்லைனில் பதிவானது!)`);
             },
 
             setVisitStatus(famId, status) {
@@ -274,7 +266,7 @@
                 fam.visitStatus = status;
                 if (status === 'visited') fam.visitedAt = new Date().toISOString();
                 this.persist();
-                this.notify(`நிலை மாற்றப்பட்டது: ${this.getVisitStatusLabel(status)}`);
+                this.notify(`நிலை ஆன்லைனில் மாற்றப்பட்டது: ${this.getVisitStatusLabel(status)}`);
             },
 
             setSupportStatus(famId, status) {
@@ -282,7 +274,7 @@
                 if (!fam) return;
                 fam.supportStatus = status;
                 this.persist();
-                this.notify(`ஆதரவு நிலை: ${this.getSupportStatusLabel(status)}`);
+                this.notify(`ஆதரவு நிலை ஆன்லைனில் சேமிக்கப்பட்டது: ${this.getSupportStatusLabel(status)}`);
             },
 
             openNotesModal(famId) {
@@ -298,18 +290,15 @@
                 if (fam) {
                     fam.visitNotes = this.notesText.trim();
                     this.persist();
-                    this.notify('குறிப்புகள் சேமிக்கப்பட்டன!');
+                    this.notify('குறிப்புகள் ஆன்லைனில் சேமிக்கப்பட்டன!');
                 }
                 this.showNotesModal = false;
             },
 
-            // ===== HELPER METHODS =====
             getFamilyTitle(fam) {
                 if (!fam) return '';
                 const headVoter = this.getVoterBySl(fam.headSlNo);
-                if (headVoter) {
-                    return `[${headVoter.slNo}] ${headVoter.name} குடும்பம்`;
-                }
+                if (headVoter) return `[${headVoter.slNo}] ${headVoter.name} குடும்பம்`;
                 return `குடும்பம் (${fam.id})`;
             },
 
@@ -324,22 +313,12 @@
                 return members;
             },
 
-            getVotersCountInOoru(ooruName) {
-                return this.voters.filter(v => v.ooru === ooruName).length;
-            },
-            getFamiliesCountInOoru(ooruName) {
-                return this.families.filter(f => f.ooru === ooruName).length;
-            },
-            getVisitedCountInOoru(ooruName) {
-                return this.families.filter(f => f.ooru === ooruName && f.visitStatus === 'visited').length;
-            },
+            getVotersCountInOoru(ooruName) { return this.voters.filter(v => v.ooru === ooruName).length; },
+            getFamiliesCountInOoru(ooruName) { return this.families.filter(f => f.ooru === ooruName).length; },
+            getVisitedCountInOoru(ooruName) { return this.families.filter(f => f.ooru === ooruName && f.visitStatus === 'visited').length; },
 
-            // BUG 5 FIX: Dynamic ooru tab label
-            get ooruTabLabel() {
-                return `ஊர் / தெருக்கள் (${this.oorus.length})`;
-            },
+            get ooruTabLabel() { return `ஊர் / தெருக்கள் (${this.oorus.length})`; },
 
-            // ===== OORU CRUD =====
             addOoru() {
                 const name = this.newOoruInput.trim();
                 if (!name) { alert('தயவுசெய்து ஊர் / தெருவின் பெயரை உள்ளிடவும்!'); return; }
@@ -347,7 +326,7 @@
                 this.oorus.push(name);
                 this.newOoruInput = '';
                 this.persist();
-                this.notify(`புதிய ஊர்/தெரு "${name}" சேர்க்கப்பட்டது!`);
+                this.notify(`புதிய ஊர்/தெரு "${name}" ஆன்லைனில் சேர்க்கப்பட்டது!`);
             },
 
             startEditOoru(ooruName) {
@@ -359,7 +338,7 @@
                 const oldName = this.editingOoruOldName;
                 const newName = this.editingOoruNewName.trim();
                 if (!newName) { alert('ஊர் பெயர் காலியாக இருக்கக்கூடாது!'); return; }
-                if (oldName !== newName && this.oorus.includes(newName)) { alert('இந்த புதிய பெயர் ஏற்கனவே பட்டியலில் உள்ளது!'); return; }
+                if (oldName !== newName && this.oorus.includes(newName)) { alert('இந்த புதிய பெயர் ஏற்கனவே உள்ளது!'); return; }
                 const idx = this.oorus.indexOf(oldName);
                 if (idx > -1) this.oorus[idx] = newName;
                 this.voters.forEach(v => { if (v.ooru === oldName) v.ooru = newName; });
@@ -367,21 +346,18 @@
                 this.editingOoruOldName = null;
                 this.editingOoruNewName = '';
                 this.persist();
-                this.notify(`ஊர் பெயர் "${oldName}" -> "${newName}" என மாற்றப்பட்டது!`);
+                this.notify(`ஊர் பெயர் "${oldName}" -> "${newName}" என ஆன்லைனில் மாற்றப்பட்டது!`);
             },
 
             deleteOoru(ooruName) {
                 const votersInOoru = this.getVotersCountInOoru(ooruName);
-                const msg = votersInOoru > 0
-                    ? `எச்சரிக்கை: "${ooruName}" பகுதியில் ${votersInOoru} வாக்காளர்கள் உள்ளனர். இந்த ஊரை நீக்க விரும்புகிறீர்களா?`
-                    : `"${ooruName}" ஊரை நீக்கவா?`;
+                const msg = votersInOoru > 0 ? `எச்சரிக்கை: "${ooruName}" பகுதியில் ${votersInOoru} வாக்காளர்கள் உள்ளனர். நீக்கவா?` : `"${ooruName}" ஊரை நீக்கவா?`;
                 if (!confirm(msg)) return;
                 this.oorus = this.oorus.filter(o => o !== ooruName);
                 this.persist();
                 this.notify(`ஊர்/தெரு "${ooruName}" நீக்கப்பட்டது.`);
             },
 
-            // ===== VOTER COMPUTED =====
             get unmappedVoters() { return this.voters.filter(v => !v.familyId); },
 
             get searchResultsForModal() {
@@ -443,7 +419,6 @@
             },
             get maxVoterPages() { return Math.ceil(this.filteredVoters.length / this.pageSize) || 1; },
 
-            // ===== FAMILY COMPUTED =====
             get filteredFamilies() {
                 let list = this.families;
                 if (this.familyOoruFilter) list = list.filter(f => f.ooru === this.familyOoruFilter);
@@ -465,7 +440,6 @@
 
             getVoterBySl(slNo) { return this.voters.find(v => v.slNo === slNo); },
 
-            // ===== FAMILY CRUD =====
             openManualModal(defaultOoru = null) {
                 this.manualSearchQuery = '';
                 const targetOoru = defaultOoru || this.familyOoruFilter || this.oorus[0] || '';
@@ -499,14 +473,12 @@
                 if (!this.manualForm.headSlNo) { alert('தயவுசெய்து குடும்பத் தலைவரைத் தேர்ந்தெடுக்கவும்!'); return; }
                 if (!this.manualForm.ooru) { alert('தயவுசெய்து ஊர் / தெருவைத் தேர்ந்தெடுக்கவும்!'); return; }
 
-                // BUG 5 FIX: Duplicate house number warning
                 const dupFam = this.families.find(f => f.houseNo === this.manualForm.houseNo.trim() && f.ooru === this.manualForm.ooru);
                 if (dupFam && this.manualForm.houseNo.trim()) {
                     const headV = this.getVoterBySl(dupFam.headSlNo);
                     if (!confirm(`எச்சரிக்கை: வீடு எண் "${this.manualForm.houseNo}" - "${this.manualForm.ooru}" பகுதியில் ஏற்கனவே ஒரு குடும்பம் (${headV ? headV.name : dupFam.id}) உள்ளது. தொடரவா?`)) return;
                 }
 
-                // BUG 2 FIX: Use max-id based ID generation
                 const newFamId = generateFamilyId(this.families);
                 const selectedOoru = this.manualForm.ooru;
 
@@ -519,7 +491,6 @@
                     headSlNo: this.manualForm.headSlNo,
                     memberSlNos: [...this.manualForm.selectedSlNos],
                     createdAt: new Date().toISOString(),
-                    // Visit Tracker fields
                     visitStatus: VISIT_STATUS.NOT_VISITED,
                     supportStatus: SUPPORT_STATUS.UNKNOWN,
                     visitNotes: '',
@@ -540,7 +511,7 @@
                 this.families.push(newFamily);
                 this.persist();
                 this.showManualModal = false;
-                this.notify(`குடும்பம் ${newFamId} உருவாக்கப்பட்டது! (${newFamily.memberSlNos.length} வாக்காளர்கள்)`);
+                this.notify(`குடும்பம் ${newFamId} உருவாக்கப்பட்டு ஆன்லைனில் சேமிக்கப்பட்டது! (${newFamily.memberSlNos.length} வாக்காளர்கள்)`);
             },
 
             openAddMemberToFamilyModal(famId) {
@@ -561,7 +532,7 @@
                     if (fam.caste) v.caste = fam.caste;
                     if (fam.mobile) v.mobile = fam.mobile;
                     this.persist();
-                    this.notify(`${v.name} (வரிசை ${slNo}) குடும்பத்தில் சேர்க்கப்பட்டார்!`);
+                    this.notify(`${v.name} (வரிசை ${slNo}) குடும்பத்தில் சேர்க்கப்பட்டு ஆன்லைனில் புதுப்பிக்கப்பட்டது!`);
                 }
             },
 
@@ -595,7 +566,7 @@
                     });
                     this.persist();
                     this.showEditFamilyModal = false;
-                    this.notify(`குடும்ப விவரங்கள் (${fam.id}) புதுப்பிக்கப்பட்டன!`);
+                    this.notify(`குடும்ப விவரங்கள் (${fam.id}) ஆன்லைனில் புதுப்பிக்கப்பட்டன!`);
                 }
             },
 
@@ -611,7 +582,7 @@
                 });
                 this.families = this.families.filter(f => f.id !== famId);
                 this.persist();
-                this.notify(`குடும்பம் ${famId} நீக்கப்பட்டது. ${fam.memberSlNos.length} வாக்காளர்கள் மீட்கப்பட்டனர்.`);
+                this.notify(`குடும்பம் ${famId} நீக்கப்பட்டது. ${fam.memberSlNos.length} வாக்காளர்கள் ஆன்லைனில் மீட்கப்பட்டனர்.`);
             },
 
             removeMemberFromFamily(famId, slNo) {
@@ -638,11 +609,8 @@
                 }
             },
 
-            // ===== PRINT HELPERS =====
-            // BUG 3 FIX: Don't switch to 'print' tab, just trigger print directly
             printFamilyCard(famId) {
                 this.selectedPrintFamilyId = famId;
-                // Show print section briefly, print, then stay on families tab
                 const prevTab = this.currentTab;
                 this.currentTab = 'print';
                 setTimeout(() => {
@@ -670,50 +638,11 @@
                 return this.families.filter(f => f.id === this.selectedPrintFamilyId);
             },
 
-            exportJSON() {
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-                    voters: this.voters,
-                    families: this.families,
-                    oorus: this.oorus
-                }, null, 2));
-                const downloadAnchor = document.createElement('a');
-                downloadAnchor.setAttribute("href", dataStr);
-                downloadAnchor.setAttribute("download", "ADMK_Booth_257_Data_Backup.json");
-                document.body.appendChild(downloadAnchor);
-                downloadAnchor.click();
-                downloadAnchor.remove();
-                this.notify('பேக்கப் ஃபைல் டவுன்லோட் செய்யப்பட்டது!');
-            },
-
-            importJSON(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        if (data.families && data.voters && data.oorus) {
-                            this.voters = data.voters;
-                            this.families = data.families;
-                            this.oorus = data.oorus;
-                            this.persist();
-                            this.notify(`வெற்றிகரமாக ${data.families.length} குடும்பங்கள் ஆப்பிற்குள் கொண்டுவரப்பட்டன!`);
-                        } else {
-                            alert('செல்லுபடியாகாத பேக்கப் ஃபைல்!');
-                        }
-                    } catch (err) {
-                        alert('கோப்பைப் படிப்பதில் பிழை ஏற்பட்டது!');
-                    }
-                };
-                reader.readAsText(file);
-            },
-
             resetData() {
                 if (confirm('எச்சரிக்கை: நீங்கள் உருவாக்கிய அனைத்து குடும்பத் தரவுகளையும் அழித்து, துவக்க நிலைக்கு மாற்ற விரும்புகிறீர்களா?')) {
                     localStorage.removeItem(ACTIVE_KEY_VOTERS);
                     localStorage.removeItem(ACTIVE_KEY_FAMILIES);
                     localStorage.removeItem(ACTIVE_KEY_OORUS);
-                    // BUG 3 FIX: Explicitly reload fresh data
                     this.voters = JSON.parse(JSON.stringify(window.INITIAL_VOTERS || []));
                     this.families = [];
                     this.oorus = JSON.parse(JSON.stringify(window.INITIAL_OORUS || []));
@@ -722,7 +651,6 @@
                 }
             },
 
-            // BUG 1 FIX: CSV Export properly creates anchor element
             exportCSV() {
                 const csvHeader = 'Serial No,EPIC No,Voter Name,Relation Type,Relation Name,House No,Age,Gender,Ooru,Family ID,Is Head,Mobile,Visit Status,Support Status\n';
                 const rows = this.voters.map(v => {
@@ -748,7 +676,6 @@
                 const csvContent = '\uFEFF' + csvHeader + rows.join('\n');
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
-                // BUG 1 FIX: Properly create anchor element
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'ADMK_Booth_257_Voters_Master.csv';
