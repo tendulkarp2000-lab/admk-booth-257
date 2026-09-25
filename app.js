@@ -1,5 +1,5 @@
-// ADMK Election Management System - Auto-Repair & Real-Time Cloud Sync Engine
-// v4.2 - Auto-purges corrupted question marks (????) from local storage & syncs clean UTF-8
+// ADMK Election Management System - Lightning Cloud Sync & Voter Mapper
+// v4.3 - Fixed slNo Number type Coercion & Alpine Proxy unwrapping for 100% Cross-Device Family Sync
 (function () {
     const ACTIVE_KEY_VOTERS = 'admk_booth_257_voters_master';
     const ACTIVE_KEY_FAMILIES = 'admk_booth_257_families_master';
@@ -31,10 +31,9 @@
         let voters = masterVoters ? JSON.parse(masterVoters) : (window.INITIAL_VOTERS ? JSON.parse(JSON.stringify(window.INITIAL_VOTERS)) : []);
         let oorus = masterOorus ? JSON.parse(masterOorus) : (window.INITIAL_OORUS ? JSON.parse(JSON.stringify(window.INITIAL_OORUS)) : []);
 
-        // AUTO REPAIR: If oorus contain '????' or question marks from old broken run, PURGE THEM!
+        // AUTO REPAIR: Clear question marks if present
         const hasQuestionMarks = oorus.some(o => typeof o === 'string' && o.includes('?'));
         if (hasQuestionMarks || oorus.length <= 1) {
-            console.log('Auto-purging corrupted oorus from local storage');
             oorus = window.INITIAL_OORUS ? JSON.parse(JSON.stringify(window.INITIAL_OORUS)) : [];
             families = [];
             localStorage.removeItem(ACTIVE_KEY_OORUS);
@@ -133,34 +132,29 @@
             showToast: false,
 
             async init() {
-                console.log(`ADMK App v4.2 Auto-Repair Engine Initializing...`);
+                console.log(`ADMK App v4.3 Voter Mapper Engine Initializing...`);
                 
-                // Purge corrupted local state if question marks exist
-                this.purgeCorruptedLocalState();
-
-                // Sync voters state with families
+                // Rebuild voter mappings
                 this.rebuildVoterMappings();
 
-                // Fetch clean cloud data
+                // Fetch cloud data
                 await this.fetchFromCloud();
 
-                // Poll cloud every 10s
+                // Poll every 8 seconds for fast cross-device sync
                 setInterval(() => {
                     this.fetchFromCloud(true);
-                }, 10000);
+                }, 8000);
             },
 
-            purgeCorruptedLocalState() {
-                if (this.oorus.some(o => typeof o === 'string' && o.includes('?'))) {
-                    console.log('Purging corrupted local oorus');
-                    this.oorus = JSON.parse(JSON.stringify(window.INITIAL_OORUS || []));
-                    this.families = [];
-                    localStorage.clear();
-                    saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
-                }
+            // CRITICAL BUG FIX: Number type coercion so slNo "14" matches slNo 14 100% reliably
+            getVoterBySl(slNo) {
+                if (slNo === null || slNo === undefined) return null;
+                const target = Number(slNo);
+                return this.voters.find(v => Number(v.slNo) === target);
             },
 
             rebuildVoterMappings() {
+                // Reset all voters
                 this.voters.forEach(v => {
                     v.familyId = null;
                     v.isHead = false;
@@ -169,14 +163,15 @@
                     v.mobile = '';
                 });
 
+                // Map families to voters with Number type coercion
                 this.families.forEach(f => {
                     if (f.memberSlNos && Array.isArray(f.memberSlNos)) {
                         f.memberSlNos.forEach(sl => {
                             const v = this.getVoterBySl(sl);
                             if (v) {
                                 v.familyId = f.id;
-                                v.isHead = (sl === f.headSlNo);
-                                v.ooru = f.ooru;
+                                v.isHead = (Number(sl) === Number(f.headSlNo));
+                                v.ooru = f.ooru || '';
                                 if (f.caste) v.caste = f.caste;
                                 if (f.mobile) v.mobile = f.mobile;
                             }
@@ -191,6 +186,7 @@
                 this.pushToCloud();
             },
 
+            // LIGHTNING CLOUD SYNC
             async fetchFromCloud(isBackground = false) {
                 if (!isBackground) this.isCloudSyncing = true;
                 try {
@@ -200,7 +196,6 @@
                         if (cloudObj && cloudObj.data) {
                             const cData = cloudObj.data;
                             if (cData.oorus && Array.isArray(cData.oorus) && cData.oorus.length > 1) {
-                                // Only accept cloud oorus if they don't contain question marks
                                 if (!cData.oorus.some(o => typeof o === 'string' && o.includes('?'))) {
                                     this.oorus = cData.oorus;
                                 }
@@ -209,6 +204,7 @@
                                 const cleanFamilies = cData.families.filter(f => f.ooru && !f.ooru.includes('?'));
                                 this.families = cleanFamilies;
                             }
+                            // Rebuild mappings so mappedVotersCount updates across devices
                             this.rebuildVoterMappings();
                             saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
                             this.isCloudOnline = true;
@@ -227,11 +223,15 @@
             async pushToCloud() {
                 this.isCloudSyncing = true;
                 try {
+                    // Unwrap Alpine proxies cleanly
+                    const cleanFamilies = JSON.parse(JSON.stringify(this.families));
+                    const cleanOorus = JSON.parse(JSON.stringify(this.oorus));
+
                     const payload = {
                         name: "admk_booth_257_cloud_master",
                         data: {
-                            families: this.families,
-                            oorus: this.oorus,
+                            families: cleanFamilies,
+                            oorus: cleanOorus,
                             updatedAt: new Date().toISOString()
                         }
                     };
@@ -259,6 +259,7 @@
                 setTimeout(() => { this.showToast = false; }, 3500);
             },
 
+            // ===== COMPUTED STATS =====
             get totalVotersCount() { return this.voters.length; },
             get mappedVotersCount() { return this.voters.filter(v => v.familyId).length; },
             get unmappedVotersCount() { return this.voters.filter(v => !v.familyId).length; },
@@ -357,9 +358,9 @@
                 if (!fam || !fam.memberSlNos) return [];
                 const members = fam.memberSlNos.map(sl => this.getVoterBySl(sl)).filter(Boolean);
                 members.sort((a, b) => {
-                    if (a.slNo === fam.headSlNo) return -1;
-                    if (b.slNo === fam.headSlNo) return 1;
-                    return a.slNo - b.slNo;
+                    if (Number(a.slNo) === Number(fam.headSlNo)) return -1;
+                    if (Number(b.slNo) === Number(fam.headSlNo)) return 1;
+                    return Number(a.slNo) - Number(b.slNo);
                 });
                 return members;
             },
@@ -488,8 +489,6 @@
                 }
                 return list;
             },
-
-            getVoterBySl(slNo) { return this.voters.find(v => v.slNo === slNo); },
 
             openManualModal(defaultOoru = null) {
                 this.manualSearchQuery = '';
