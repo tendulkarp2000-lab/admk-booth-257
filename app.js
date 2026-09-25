@@ -1,5 +1,5 @@
-// ADMK Election Management System - Ultra-Fast Compact Cloud Sync Engine
-// v4.1 - Lightning-fast UTF-8 Compact Real-Time Cloud Sync across all devices
+// ADMK Election Management System - Auto-Repair & Real-Time Cloud Sync Engine
+// v4.2 - Auto-purges corrupted question marks (????) from local storage & syncs clean UTF-8
 (function () {
     const ACTIVE_KEY_VOTERS = 'admk_booth_257_voters_master';
     const ACTIVE_KEY_FAMILIES = 'admk_booth_257_families_master';
@@ -30,6 +30,16 @@
         let families = masterFamilies ? JSON.parse(masterFamilies) : [];
         let voters = masterVoters ? JSON.parse(masterVoters) : (window.INITIAL_VOTERS ? JSON.parse(JSON.stringify(window.INITIAL_VOTERS)) : []);
         let oorus = masterOorus ? JSON.parse(masterOorus) : (window.INITIAL_OORUS ? JSON.parse(JSON.stringify(window.INITIAL_OORUS)) : []);
+
+        // AUTO REPAIR: If oorus contain '????' or question marks from old broken run, PURGE THEM!
+        const hasQuestionMarks = oorus.some(o => typeof o === 'string' && o.includes('?'));
+        if (hasQuestionMarks || oorus.length <= 1) {
+            console.log('Auto-purging corrupted oorus from local storage');
+            oorus = window.INITIAL_OORUS ? JSON.parse(JSON.stringify(window.INITIAL_OORUS)) : [];
+            families = [];
+            localStorage.removeItem(ACTIVE_KEY_OORUS);
+            localStorage.removeItem(ACTIVE_KEY_FAMILIES);
+        }
 
         families = families.map(f => ({
             visitStatus: VISIT_STATUS.NOT_VISITED,
@@ -123,21 +133,34 @@
             showToast: false,
 
             async init() {
-                console.log(`ADMK App v4.1 Ultra-Fast Cloud Engine Initializing...`);
-                // First sync voters state with families
+                console.log(`ADMK App v4.2 Auto-Repair Engine Initializing...`);
+                
+                // Purge corrupted local state if question marks exist
+                this.purgeCorruptedLocalState();
+
+                // Sync voters state with families
                 this.rebuildVoterMappings();
 
-                // Fetch from cloud DB instantly
+                // Fetch clean cloud data
                 await this.fetchFromCloud();
 
-                // Auto poll every 10 seconds for real-time live sync across devices
+                // Poll cloud every 10s
                 setInterval(() => {
                     this.fetchFromCloud(true);
                 }, 10000);
             },
 
+            purgeCorruptedLocalState() {
+                if (this.oorus.some(o => typeof o === 'string' && o.includes('?'))) {
+                    console.log('Purging corrupted local oorus');
+                    this.oorus = JSON.parse(JSON.stringify(window.INITIAL_OORUS || []));
+                    this.families = [];
+                    localStorage.clear();
+                    saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
+                }
+            },
+
             rebuildVoterMappings() {
-                // Reset all voter family mappings to base state
                 this.voters.forEach(v => {
                     v.familyId = null;
                     v.isHead = false;
@@ -146,7 +169,6 @@
                     v.mobile = '';
                 });
 
-                // Apply mapped families
                 this.families.forEach(f => {
                     if (f.memberSlNos && Array.isArray(f.memberSlNos)) {
                         f.memberSlNos.forEach(sl => {
@@ -169,7 +191,6 @@
                 this.pushToCloud();
             },
 
-            // LIGHTNING FAST CLOUD SYNC ENGINE (Only syncs families + oorus to ensure instant UTF-8 sync)
             async fetchFromCloud(isBackground = false) {
                 if (!isBackground) this.isCloudSyncing = true;
                 try {
@@ -178,11 +199,15 @@
                         const cloudObj = await response.json();
                         if (cloudObj && cloudObj.data) {
                             const cData = cloudObj.data;
-                            if (cData.families && Array.isArray(cData.families)) {
-                                this.families = cData.families;
+                            if (cData.oorus && Array.isArray(cData.oorus) && cData.oorus.length > 1) {
+                                // Only accept cloud oorus if they don't contain question marks
+                                if (!cData.oorus.some(o => typeof o === 'string' && o.includes('?'))) {
+                                    this.oorus = cData.oorus;
+                                }
                             }
-                            if (cData.oorus && Array.isArray(cData.oorus) && cData.oorus.length > 0) {
-                                this.oorus = cData.oorus;
+                            if (cData.families && Array.isArray(cData.families)) {
+                                const cleanFamilies = cData.families.filter(f => f.ooru && !f.ooru.includes('?'));
+                                this.families = cleanFamilies;
                             }
                             this.rebuildVoterMappings();
                             saveStateLocal({ voters: this.voters, families: this.families, oorus: this.oorus });
@@ -234,7 +259,6 @@
                 setTimeout(() => { this.showToast = false; }, 3500);
             },
 
-            // ===== COMPUTED STATS =====
             get totalVotersCount() { return this.voters.length; },
             get mappedVotersCount() { return this.voters.filter(v => v.familyId).length; },
             get unmappedVotersCount() { return this.voters.filter(v => !v.familyId).length; },
@@ -632,9 +656,7 @@
 
             resetData() {
                 if (confirm('எச்சரிக்கை: நீங்கள் உருவாக்கிய அனைத்து குடும்பத் தரவுகளையும் அழித்து, துவக்க நிலைக்கு மாற்ற விரும்புகிறீர்களா?')) {
-                    localStorage.removeItem(ACTIVE_KEY_VOTERS);
-                    localStorage.removeItem(ACTIVE_KEY_FAMILIES);
-                    localStorage.removeItem(ACTIVE_KEY_OORUS);
+                    localStorage.clear();
                     this.voters = JSON.parse(JSON.stringify(window.INITIAL_VOTERS || []));
                     this.families = [];
                     this.oorus = JSON.parse(JSON.stringify(window.INITIAL_OORUS || []));
