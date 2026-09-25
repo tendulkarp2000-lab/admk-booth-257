@@ -1,33 +1,31 @@
-const CACHE = 'admk-booth-257-v1';
+const CACHE = 'admk-booth-257-v2';
 const ASSETS = [
   './app.html',
-  './app.js',
-  './voters_data.js',
-  './manifest.json',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
-  'https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;600;700;800&display=swap',
-  'https://unpkg.com/lucide@latest'
+  './app.js?v=2.0',
+  './voters_data.js?v=2.0',
+  './manifest.json'
 ];
 
 self.addEventListener('install', e => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {}))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
-  );
+  // Always fetch network first for app.js and API calls so Chrome never caches stale code
+  if (e.request.url.includes('app.js') || e.request.url.includes('api.restful-api.dev')) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  } else {
+    e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request)));
+  }
 });
