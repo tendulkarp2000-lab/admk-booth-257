@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ta" x-data="admkApp()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0F172A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ADMK பூத் 257">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>அஇஅதிமுக பூத் 257 - தாராபுரம்</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        admk: { red: '#DC2626', darkRed: '#991B1B', black: '#0F172A', green: '#16A34A', gold: '#D97706' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body { font-family: 'Mukta Malar', sans-serif; background-color: #F1F5F9; }
+        .admk-flag { background: linear-gradient(90deg, #000 33.3%, #FFF 33.3%, #FFF 66.6%, #DC2626 66.6%); height: 5px; }
+
+        /* COMPACT PRINT LAYOUT */
+        @media print {
+            .no-print, header, nav, button, input, select, .admk-flag { display: none !important; }
+            body, main, #print-area { background: white !important; margin: 0 !important; padding: 0 !important; display: block !important; visibility: visible !important; font-size: 9.5pt !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            .print-card { page-break-inside: avoid !important; border: 1.5px solid #000 !important; border-radius: 4px !important; margin-bottom: 10px !important; padding: 8px !important; background: white !important; box-shadow: none !important; }
+            .print-table th, .print-table td { padding: 2px 5px !important; border: 1px solid #333 !important; font-size: 8.5pt !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<div class="admk-flag no-print"></div>
+
+<!-- HEADER -->
+<header class="bg-slate-900 text-white shadow-lg no-print">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-full border-2 border-amber-400 bg-slate-950 flex-shrink-0 overflow-hidden">
+                <div class="w-full h-full flex flex-col"><div class="h-1/3 bg-black"></div><div class="h-1/3 bg-white flex items-center justify-center"><span class="text-[7px] font-black text-slate-900">AI</span></div><div class="h-1/3 bg-red-600"></div></div>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-xl font-extrabold text-white flex items-center gap-2">
+                    அஇஅதிமுக தேர்தல் மேலாண்மை
+                    <span class="bg-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold hidden sm:inline">பூத் 257</span>
+                </h1>
+                <p class="text-[10px] text-slate-400 hidden sm:block">101 தாராபுரம் (தனி) | 530 வாக்காளர்கள்</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <button @click="openManualModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">குடும்பம் சேர்</span>
+            </button>
+            <button @click="exportCSV()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            </button>
+            <button @click="resetData()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1.5 rounded-lg text-xs">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- NAV TABS -->
+    <div class="bg-slate-800 border-t border-slate-700 overflow-x-auto">
+        <div class="max-w-7xl mx-auto px-3 flex">
+            <button @click="currentTab='dashboard'" :class="currentTab==='dashboard'?'border-red-500 text-red-400 font-bold':'border-transparent text-slate-300'" class="px-3 py-2.5 border-b-2 text-xs flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> முகப்பு
+            </button>
+            <button @click="currentTab='ooru'" :class="currentTab==='ooru'?'border-red-500 text-red-400 font-bold':'border-transparent text-slate-300'" class="px-3 py-2.5 border-b-2 text-xs flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span x-text="ooruTabLabel"></span>
+            </button>
+            <button @click="currentTab='families'" :class="currentTab==='families'?'border-red-500 text-red-400 font-bold':'border-transparent text-slate-300'" class="px-3 py-2.5 border-b-2 text-xs flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="users" class="w-3.5 h-3.5"></i> குடும்பங்கள்
+                <span class="bg-slate-700 text-slate-200 text-[10px] px-1.5 py-0.5 rounded-full" x-text="totalFamiliesCount"></span>
+            </button>
+            <button @click="currentTab='voters'" :class="currentTab==='voters'?'border-red-500 text-red-400 font-bold':'border-transparent text-slate-300'" class="px-3 py-2.5 border-b-2 text-xs flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="search" class="w-3.5 h-3.5"></i> வாக்காளர்கள்
+                <span class="bg-slate-700 text-slate-200 text-[10px] px-1.5 py-0.5 rounded-full" x-text="totalVotersCount"></span>
+            </button>
+            <button @click="currentTab='unmapped'" :class="currentTab==='unmapped'?'border-red-500 text-red-400 font-bold':'border-transparent text-slate-300'" class="px-3 py-2.5 border-b-2 text-xs flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="user-x" class="w-3.5 h-3.5 text-rose-400"></i> பிரிக்கப்படாதவர்
+                <span class="bg-rose-800 text-rose-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full" x-text="unmappedVotersCount"></span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- TOAST -->
+<div x-show="showToast" x-transition class="fixed bottom-4 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl border-l-4 border-emerald-500 flex items-center space-x-2 no-print">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span class="text-sm font-semibold" x-text="toastMessage"></span>
+</div>
+
+<!-- MAIN -->
+<main class="flex-grow max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-4">
+
+    <!-- ========== DASHBOARD ========== -->
+    <div x-show="currentTab==='dashboard'" class="space-y-4 no-print">
+
+        <!-- TOP STATS ROW -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div @click="selectedStatusFilter=''; currentTab='voters'" class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition">
+                <div class="text-slate-500 text-[10px] font-semibold uppercase">மொத்த வாக்காளர்கள்</div>
+                <div class="text-2xl font-black text-slate-900 mt-0.5" x-text="totalVotersCount"></div>
+            </div>
+            <div @click="selectedStatusFilter='mapped'; currentTab='voters'" class="bg-white p-3 rounded-xl shadow-sm border-2 border-emerald-200 cursor-pointer hover:bg-emerald-50 transition">
+                <div class="text-emerald-700 text-[10px] font-bold uppercase">குடும்பத்தில் உள்ளவர்</div>
+                <div class="text-2xl font-black text-emerald-600 mt-0.5" x-text="mappedVotersCount"></div>
+                <div class="text-[9px] text-emerald-600 font-bold" x-text="((mappedVotersCount/totalVotersCount)*100).toFixed(0)+'% ✓'"></div>
+            </div>
+            <div @click="currentTab='unmapped'" class="bg-white p-3 rounded-xl shadow-sm border-2 border-rose-200 cursor-pointer hover:bg-rose-50 transition">
+                <div class="text-rose-700 text-[10px] font-bold uppercase">பிரிக்கப்படாதவர்</div>
+                <div class="text-2xl font-black text-rose-600 mt-0.5" x-text="unmappedVotersCount"></div>
+            </div>
+            <div @click="currentTab='families'" class="bg-white p-3 rounded-xl shadow-sm border-2 border-amber-200 cursor-pointer hover:bg-amber-50 transition">
+                <div class="text-amber-700 text-[10px] font-bold uppercase">மொத்த குடும்பங்கள்</div>
+                <div class="text-2xl font-black text-amber-600 mt-0.5" x-text="totalFamiliesCount"></div>
+            </div>
+            <div @click="selectedGenderFilter='ஆண்'; currentTab='voters'" class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:bg-blue-50 transition">
+                <div class="text-blue-600 text-[10px] font-semibold uppercase">ஆண் வாக்காளர்</div>
+                <div class="text-2xl font-black text-blue-600 mt-0.5" x-text="maleVotersCount"></div>
+            </div>
+            <div @click="selectedGenderFilter='பெண்'; currentTab='voters'" class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:bg-pink-50 transition">
+                <div class="text-pink-600 text-[10px] font-semibold uppercase">பெண் வாக்காளர்</div>
+                <div class="text-2xl font-black text-pink-600 mt-0.5" x-text="femaleVotersCount"></div>
+            </div>
+        </div>
+
+        <!-- VISIT TRACKER DASHBOARD (FEATURE 1) -->
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="footprints" class="w-5 h-5 text-emerald-600"></i>
+                    நேரில் சந்தித்தோமா? — குடும்ப வருகை நிலை
+                </h3>
+                <button @click="familyVisitFilter='follow_up'; currentTab='families'" class="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> மீண்டும் வர வேண்டியவை
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between text-xs font-semibold mb-1">
+                    <span class="text-slate-700" x-text="'சந்தித்தோம்: ' + visitedFamiliesCount + ' / ' + totalFamiliesCount + ' குடும்பங்கள்'"></span>
+                    <span class="text-emerald-700 font-black" x-text="visitProgressPercent + '%'"></span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-3">
+                    <div class="bg-emerald-500 h-3 rounded-full transition-all duration-500" :style="'width:' + visitProgressPercent + '%'"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div @click="familyVisitFilter='visited'; currentTab='families'" class="bg-emerald-50 border-2 border-emerald-300 p-3 rounded-xl text-center cursor-pointer hover:bg-emerald-100 transition">
+                    <div class="text-emerald-700 text-[11px] font-bold">🟢 சந்தித்தோம்</div>
+                    <div class="text-2xl font-black text-emerald-700 mt-0.5" x-text="visitedFamiliesCount"></div>
+                </div>
+                <div @click="familyVisitFilter='not_visited'; currentTab='families'" class="bg-red-50 border-2 border-red-300 p-3 rounded-xl text-center cursor-pointer hover:bg-red-100 transition">
+                    <div class="text-red-700 text-[11px] font-bold">🔴 சந்திக்கவில்லை</div>
+                    <div class="text-2xl font-black text-red-700 mt-0.5" x-text="notVisitedFamiliesCount"></div>
+                </div>
+                <div @click="familyVisitFilter='follow_up'; currentTab='families'" class="bg-amber-50 border-2 border-amber-300 p-3 rounded-xl text-center cursor-pointer hover:bg-amber-100 transition">
+                    <div class="text-amber-700 text-[11px] font-bold">🟡 மீண்டும் வர வேண்டும்</div>
+                    <div class="text-2xl font-black text-amber-700 mt-0.5" x-text="followUpFamiliesCount"></div>
+                </div>
+            </div>
+
+            <!-- Support Status Row -->
+            <div class="mt-3 pt-3 border-t border-slate-200">
+                <h4 class="text-xs font-bold text-slate-700 mb-2">ஆதரவு நிலை (Support Status)</h4>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="bg-emerald-50 p-2 rounded-lg text-center border border-emerald-200">
+                        <div class="text-[10px] font-bold text-emerald-700">✅ ஆதரவு</div>
+                        <div class="text-lg font-black text-emerald-700" x-text="supporterCount"></div>
+                    </div>
+                    <div class="bg-red-50 p-2 rounded-lg text-center border border-red-200">
+                        <div class="text-[10px] font-bold text-red-700">❌ எதிர்ப்பு</div>
+                        <div class="text-lg font-black text-red-700" x-text="oppositionCount"></div>
+                    </div>
+                    <div class="bg-blue-50 p-2 rounded-lg text-center border border-blue-200">
+                        <div class="text-[10px] font-bold text-blue-700">❓ முடிவில்லை</div>
+                        <div class="text-lg font-black text-blue-700" x-text="undecidedCount"></div>
+                    </div>
+                    <div class="bg-orange-50 p-2 rounded-lg text-center border border-orange-200">
+                        <div class="text-[10px] font-bold text-orange-700">🔄 மாற்றவேண்டும்</div>
+                        <div class="text-lg font-black text-orange-700" x-text="toConvinceCount"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AGE CLASSIFICATION -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i data-lucide="calendar" class="w-4 h-4 text-amber-500"></i>
+                வயது வாரியான வாக்காளர்கள் பிரிவு
+            </h3>
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <div @click="selectedAgeFilter='18-25'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-amber-50 hover:border-amber-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">18-25</div>
+                    <div class="text-xl font-black text-amber-600" x-text="age18_25Count"></div>
+                </div>
+                <div @click="selectedAgeFilter='26-35'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">26-35</div>
+                    <div class="text-xl font-black text-blue-600" x-text="age26_35Count"></div>
+                </div>
+                <div @click="selectedAgeFilter='36-50'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">36-50</div>
+                    <div class="text-xl font-black text-emerald-600" x-text="age36_50Count"></div>
+                </div>
+                <div @click="selectedAgeFilter='51-70'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">51-70</div>
+                    <div class="text-xl font-black text-indigo-600" x-text="age51_70Count"></div>
+                </div>
+                <div @click="selectedAgeFilter='71-90'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">71-90</div>
+                    <div class="text-xl font-black text-purple-600" x-text="age71_90Count"></div>
+                </div>
+                <div @click="selectedAgeFilter='90+'; currentTab='voters'" class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-rose-50 hover:border-rose-300 transition text-center">
+                    <div class="text-[10px] font-bold text-slate-600">90+</div>
+                    <div class="text-xl font-black text-rose-600" x-text="age90PlusCount"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OORU CARDS -->
+        <div>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-red-600"></i>
+                    ஊர் / தெருக்கள் நிலவரம்
+                </h3>
+                <button @click="currentTab='ooru'" class="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">+ ஊர் சேர்</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <template x-for="(ooru, idx) in oorus" :key="idx">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 hover:shadow-md transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-bold text-slate-900 text-sm" x-text="ooru"></h4>
+                            <span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold" x-text="'பகுதி ' + (idx+1)"></span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5 text-center text-xs mb-3">
+                            <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                                <div class="text-[9px] text-slate-500">வாக்காளர்</div>
+                                <div class="font-black text-slate-900" x-text="getVotersCountInOoru(ooru)"></div>
+                            </div>
+                            <div class="bg-emerald-50 p-1.5 rounded border border-emerald-100">
+                                <div class="text-[9px] text-emerald-600">குடும்பம்</div>
+                                <div class="font-black text-emerald-700" x-text="getFamiliesCountInOoru(ooru)"></div>
+                            </div>
+                            <div class="bg-blue-50 p-1.5 rounded border border-blue-100">
+                                <div class="text-[9px] text-blue-600">சந்தித்தோம்</div>
+                                <div class="font-black text-blue-700" x-text="getVisitedCountInOoru(ooru)"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button @click="familyOoruFilter=ooru; familyVisitFilter=''; currentTab='families'" class="flex-1 text-[11px] font-bold text-red-600 hover:bg-red-50 border border-red-200 py-1 rounded">
+                                குடும்பங்கள்
+                            </button>
+                            <button @click="openManualModal(ooru)" class="flex-1 text-[11px] font-bold text-amber-700 hover:bg-amber-50 border border-amber-200 py-1 rounded">
+                                + குடும்பம்
+                            </button>
+                            <button @click="printAllFamiliesInOoru(ooru)" class="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
+                                🖨
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== OORU MANAGEMENT ========== -->
+    <div x-show="currentTab==='ooru'" class="no-print">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pb-4 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-5 h-5 text-emerald-600"></i>
+                    ஊர் / தெருக்கள் மேலாண்மை
+                </h2>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input type="text" x-model="newOoruInput" @keydown.enter="addOoru()" placeholder="புதிய ஊர் / தெரு பெயர்..." class="border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none w-full sm:w-56 focus:ring-2 focus:ring-emerald-500">
+                    <button @click="addOoru()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg whitespace-nowrap">+ சேர்</button>
+                </div>
+            </div>
+            <table class="w-full text-xs text-slate-700 border-collapse">
+                <thead><tr class="bg-slate-100 font-bold border-b border-slate-200">
+                    <th class="p-2.5">#</th><th class="p-2.5">ஊர் / தெரு பெயர்</th>
+                    <th class="p-2.5 text-center">வாக்காளர்</th>
+                    <th class="p-2.5 text-center">குடும்பம்</th>
+                    <th class="p-2.5 text-center">சந்தித்தோம்</th>
+                    <th class="p-2.5 text-right">Actions</th>
+                </tr></thead>
+                <tbody>
+                    <template x-for="(ooru, idx) in oorus" :key="idx">
+                        <tr class="border-b border-slate-100 hover:bg-slate-50">
+                            <td class="p-2.5 text-slate-400 font-bold" x-text="idx+1"></td>
+                            <td class="p-2.5">
+                                <template x-if="editingOoruOldName !== ooru">
+                                    <span class="font-bold text-slate-900" x-text="ooru"></span>
+                                </template>
+                                <template x-if="editingOoruOldName === ooru">
+                                    <div class="flex gap-1.5">
+                                        <input type="text" x-model="editingOoruNewName" class="border rounded px-2 py-1 text-xs outline-none">
+                                        <button @click="saveEditOoru()" class="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded">சேமி</button>
+                                        <button @click="editingOoruOldName=null" class="bg-slate-200 text-slate-700 text-[10px] px-2 py-1 rounded">ரத்து</button>
+                                    </div>
+                                </template>
+                            </td>
+                            <td class="p-2.5 text-center font-bold" x-text="getVotersCountInOoru(ooru)"></td>
+                            <td class="p-2.5 text-center font-bold text-emerald-700" x-text="getFamiliesCountInOoru(ooru)"></td>
+                            <td class="p-2.5 text-center font-bold text-blue-700" x-text="getVisitedCountInOoru(ooru) + ' / ' + getFamiliesCountInOoru(ooru)"></td>
+                            <td class="p-2.5 text-right space-x-1">
+                                <button @click="startEditOoru(ooru)" class="text-blue-600 hover:bg-blue-50 font-semibold px-2 py-1 rounded text-[11px]">திருத்து</button>
+                                <button @click="deleteOoru(ooru)" class="text-rose-600 hover:bg-rose-50 font-semibold px-2 py-1 rounded text-[11px]">நீக்கு</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== FAMILIES ========== -->
+    <div x-show="currentTab==='families'" class="space-y-3 no-print">
+        <!-- Filter Bar -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col sm:flex-row gap-2.5">
+            <div class="flex flex-col sm:flex-row gap-2 flex-1">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+                    <input type="text" x-model="familySearch" placeholder="தலைவர் / வரிசை / வீடு..." class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <select x-model="familyOoruFilter" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500 sm:w-52">
+                    <option value="">அனைத்து ஊர்களும்</option>
+                    <template x-for="ooru in oorus" :key="ooru"><option :value="ooru" x-text="ooru"></option></template>
+                </select>
+                <select x-model="familyVisitFilter" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500 sm:w-48">
+                    <option value="">அனைத்து நிலைகளும்</option>
+                    <option value="not_visited">🔴 சந்திக்கவில்லை</option>
+                    <option value="visited">🟢 சந்தித்தோம்</option>
+                    <option value="follow_up">🟡 மீண்டும் வர வேண்டும்</option>
+                </select>
+            </div>
+            <div class="flex gap-1.5">
+                <button x-show="familyOoruFilter" @click="printAllFamiliesInOoru(familyOoruFilter)" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-lg flex items-center gap-1">
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i><span class="hidden sm:inline" x-text="familyOoruFilter + ' பிரிண்ட்'"></span>
+                </button>
+                <button @click="openManualModal(familyOoruFilter)" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-2 rounded-lg flex items-center gap-1">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> புதிய குடும்பம்
+                </button>
+            </div>
+        </div>
+
+        <!-- Results count -->
+        <div class="text-xs text-slate-500 font-semibold px-1" x-text="filteredFamilies.length + ' குடும்பங்கள் காட்டப்படுகின்றன'"></div>
+
+        <!-- Family Cards -->
+        <template x-if="filteredFamilies.length === 0">
+            <div class="bg-white rounded-xl p-10 text-center text-slate-400 shadow-sm border border-slate-200">
+                <i data-lucide="users" class="w-10 h-10 mx-auto stroke-1 mb-2 text-slate-300"></i>
+                <p class="font-bold text-slate-600">குடும்பங்கள் எதுவும் இல்லை.</p>
+            </div>
+        </template>
+
+        <template x-for="fam in filteredFamilies" :key="fam.id">
+            <div class="bg-white rounded-xl shadow-md border-2 border-slate-200 overflow-hidden">
+                <!-- Card Header -->
+                <div class="bg-slate-900 text-white px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="bg-amber-500 text-slate-950 font-black text-[11px] px-2 py-1 rounded" x-text="getFamilyTitle(fam)"></span>
+                        <span class="text-slate-300 text-xs" x-text="'🏠 ' + fam.houseNo + ' | ' + fam.ooru"></span>
+                        <span x-show="fam.mobile" class="text-slate-300 text-xs" x-text="'📞 ' + fam.mobile"></span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <!-- VISIT STATUS TOGGLE (ONE CLICK!) -->
+                        <button @click="cycleVisitStatus(fam.id)" :class="getVisitStatusBadge(fam.visitStatus || 'not_visited')" class="text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition">
+                            <span x-text="getVisitStatusLabel(fam.visitStatus || 'not_visited')"></span>
+                        </button>
+
+                        <!-- SUPPORT STATUS -->
+                        <select @change="setSupportStatus(fam.id, $event.target.value)" class="text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-600 bg-slate-800 text-slate-200 outline-none" :value="fam.supportStatus || 'unknown'">
+                            <option value="unknown">ஆதரவு நிலை?</option>
+                            <option value="supporter">✅ ஆதரவு</option>
+                            <option value="opposition">❌ எதிர்ப்பு</option>
+                            <option value="undecided">❓ முடிவில்லை</option>
+                            <option value="to_convince">🔄 மாற்றவேண்டும்</option>
+                        </select>
+
+                        <!-- Notes button -->
+                        <button @click="openNotesModal(fam.id)" class="text-[10px] font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-1 rounded-lg flex items-center gap-1">
+                            <i data-lucide="sticky-note" class="w-3 h-3"></i>
+                            <span x-text="fam.visitNotes ? '📝' : 'குறிப்பு'"></span>
+                        </button>
+
+                        <button @click="openAddMemberToFamilyModal(fam.id)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 py-1 rounded-lg flex items-center gap-0.5">
+                            <i data-lucide="user-plus" class="w-3 h-3"></i> சேர்
+                        </button>
+                        <button @click="openEditFamily(fam)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-[10px] px-2 py-1 rounded-lg">திருத்து</button>
+                        <button @click="printFamilyCard(fam.id)" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[10px] px-2 py-1 rounded-lg flex items-center gap-0.5">
+                            <i data-lucide="printer" class="w-3 h-3"></i>
+                        </button>
+                        <button @click="deleteFamily(fam.id)" class="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[10px] px-2 py-1 rounded-lg flex items-center gap-0.5">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i> நீக்கு
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Visit Notes Display -->
+                <div x-show="fam.visitNotes" class="bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-xs text-amber-800 font-semibold flex items-center gap-1.5">
+                    <i data-lucide="message-square" class="w-3 h-3"></i>
+                    <span x-text="'குறிப்பு: ' + fam.visitNotes"></span>
+                </div>
+
+                <!-- Members Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-700 border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 font-bold border-b border-slate-200">
+                                <th class="p-2">வரிசை</th><th class="p-2">EPIC</th><th class="p-2">பெயர்</th>
+                                <th class="p-2 hidden sm:table-cell">உறவுமுறை</th>
+                                <th class="p-2 text-center">வயது</th><th class="p-2 text-center">பால்</th>
+                                <th class="p-2 text-right">நீக்கு</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="v in getSortedFamilyMembers(fam)" :key="v.slNo">
+                                <tr :class="v.isHead ? 'bg-amber-50 font-bold border-l-4 border-l-amber-500' : 'hover:bg-slate-50'" class="border-b border-slate-100">
+                                    <td class="p-2 font-bold" x-text="v.slNo"></td>
+                                    <td class="p-2 font-mono text-blue-700" x-text="v.epicNo"></td>
+                                    <td class="p-2">
+                                        <span class="font-bold" x-text="v.name"></span>
+                                        <span x-show="v.isHead" class="ml-1 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">தலைவர்</span>
+                                    </td>
+                                    <td class="p-2 text-slate-500 hidden sm:table-cell" x-text="v.relationType + ': ' + v.relationName"></td>
+                                    <td class="p-2 text-center" x-text="v.age"></td>
+                                    <td class="p-2 text-center" :class="v.gender==='ஆண்'?'text-blue-600':'text-pink-600'" x-text="v.gender"></td>
+                                    <td class="p-2 text-right">
+                                        <button @click="removeMemberFromFamily(fam.id, v.slNo)" class="text-rose-600 hover:bg-rose-50 font-bold text-[10px] px-2 py-0.5 rounded">✕</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ========== VOTERS ========== -->
+    <div x-show="currentTab==='voters'" class="space-y-3 no-print">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+                <div class="relative lg:col-span-2">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+                    <input type="text" x-model="voterSearch" @input="voterPage=1" placeholder="பெயர் / EPIC / வரிசை..." class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <select x-model="selectedOoruFilter" @change="voterPage=1" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">அனைத்து ஊர்கள்</option>
+                    <option value="UNASSIGNED">Unassigned</option>
+                    <template x-for="ooru in oorus" :key="ooru"><option :value="ooru" x-text="ooru"></option></template>
+                </select>
+                <select x-model="selectedStatusFilter" @change="voterPage=1" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">அனைத்து நிலைகளும்</option>
+                    <option value="mapped">குடும்பத்தில் உள்ளவர்</option>
+                    <option value="unmapped">குடும்பத்தில் இல்லாதவர்</option>
+                </select>
+                <select x-model="selectedGenderFilter" @change="voterPage=1" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">அனைத்து பாலினம்</option>
+                    <option value="ஆண்">ஆண் (Male)</option>
+                    <option value="பெண்">பெண் (Female)</option>
+                </select>
+                <select x-model="selectedAgeFilter" @change="voterPage=1" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-red-500 text-amber-700 bg-amber-50 font-semibold">
+                    <option value="">அனைத்து வயதும்</option>
+                    <option value="18-25">18-25 (இளைஞர்)</option>
+                    <option value="26-35">26-35</option>
+                    <option value="36-50">36-50</option>
+                    <option value="51-70">51-70</option>
+                    <option value="71-90">71-90</option>
+                    <option value="90+">90+</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-3 py-2 bg-slate-900 text-white flex items-center justify-between text-xs">
+                <span class="font-bold" x-text="filteredVoters.length + ' / ' + totalVotersCount + ' வாக்காளர்கள்'"></span>
+                <div class="flex items-center gap-1.5">
+                    <button @click="voterPage=Math.max(1,voterPage-1)" :disabled="voterPage===1" class="px-2 py-1 bg-slate-800 rounded disabled:opacity-40">◀</button>
+                    <span x-text="voterPage + '/' + maxVoterPages"></span>
+                    <button @click="voterPage=Math.min(maxVoterPages,voterPage+1)" :disabled="voterPage===maxVoterPages" class="px-2 py-1 bg-slate-800 rounded disabled:opacity-40">▶</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-700 border-collapse">
+                    <thead><tr class="bg-slate-100 font-bold border-b border-slate-200">
+                        <th class="p-2">வரிசை</th><th class="p-2">EPIC</th><th class="p-2">பெயர்</th>
+                        <th class="p-2 hidden sm:table-cell">உறவு</th>
+                        <th class="p-2">வீடு</th><th class="p-2 text-center">வயது</th>
+                        <th class="p-2 text-center">பால்</th><th class="p-2">ஊர்</th><th class="p-2">குடும்பம்</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="v in paginatedVoters" :key="v.slNo">
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-2 font-bold" x-text="v.slNo"></td>
+                                <td class="p-2 font-mono font-bold text-blue-700" x-text="v.epicNo"></td>
+                                <td class="p-2 font-bold text-slate-900" x-text="v.name"></td>
+                                <td class="p-2 text-slate-500 hidden sm:table-cell" x-text="v.relationType+': '+v.relationName"></td>
+                                <td class="p-2 font-semibold" x-text="v.houseNo"></td>
+                                <td class="p-2 text-center" x-text="v.age"></td>
+                                <td class="p-2 text-center" :class="v.gender==='ஆண்'?'text-blue-600':'text-pink-600'" x-text="v.gender"></td>
+                                <td class="p-2 font-semibold" x-text="v.ooru || '—'"></td>
+                                <td class="p-2">
+                                    <span x-show="v.familyId" class="bg-emerald-100 text-emerald-800 font-bold text-[10px] px-1.5 py-0.5 rounded" x-text="v.familyId"></span>
+                                    <span x-show="!v.familyId" class="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0.5 rounded">—</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== UNMAPPED ========== -->
+    <div x-show="currentTab==='unmapped'" class="space-y-3 no-print">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900">பிரிக்கப்படாத வாக்காளர்கள் பட்டியல்</h3>
+                <p class="text-xs text-slate-500"><span class="font-bold text-rose-600" x-text="unmappedVotersCount"></span> வாக்காளர்கள் குடும்பத்தில் சேர்க்கப்படாமல் உள்ளனர்</p>
+            </div>
+            <button @click="openManualModal()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-2 rounded-lg flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> குடும்பம் சேர்
+            </button>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-700 border-collapse">
+                    <thead><tr class="bg-slate-100 font-bold border-b border-slate-200">
+                        <th class="p-2">வரிசை</th><th class="p-2">EPIC</th><th class="p-2">பெயர்</th>
+                        <th class="p-2 hidden sm:table-cell">உறவுமுறை & பெயர்</th>
+                        <th class="p-2">வீடு</th><th class="p-2">வயது/பால்</th>
+                        <th class="p-2">ஊர்</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="v in unmappedVoters" :key="v.slNo">
+                            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                <td class="p-2 font-bold text-rose-600" x-text="v.slNo"></td>
+                                <td class="p-2 font-mono font-bold text-blue-700" x-text="v.epicNo"></td>
+                                <td class="p-2 font-bold text-slate-900" x-text="v.name"></td>
+                                <td class="p-2 text-slate-500 hidden sm:table-cell" x-text="v.relationType+': '+v.relationName"></td>
+                                <td class="p-2 font-semibold" x-text="v.houseNo"></td>
+                                <td class="p-2" x-text="v.age+' | '+v.gender"></td>
+                                <td class="p-2" x-text="v.ooru || '—'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PRINT SECTION (Hidden tab, only appears during print) ========== -->
+    <div x-show="currentTab==='print'" id="print-area" class="space-y-3">
+        <div class="no-print bg-white rounded-xl p-3 flex items-center justify-between border border-slate-200 shadow-sm">
+            <p class="text-sm font-bold text-slate-700">அச்சு முன்னோட்டம் தயாராகிவிட்டது. Print Now பொத்தான் அழுத்தவும்.</p>
+            <button onclick="window.print()" class="bg-emerald-600 text-white font-bold text-xs px-4 py-2 rounded-lg">🖨 Print Now</button>
+        </div>
+        <!-- ONE banner at top -->
+        <div class="bg-slate-900 text-white p-2.5 rounded-lg flex items-center justify-between text-xs">
+            <div>
+                <div class="text-amber-400 font-black tracking-wider">அனைத்திந்திய அண்ணா திராவிட முன்னேற்றக் கழகம் (ADMK)</div>
+                <div class="font-black text-sm text-white">101 தாராபுரம் (தனி) — வாக்குச்சாவடி எண்: 257</div>
+            </div>
+            <div class="text-right text-[11px] font-bold">ஒலப்பாளையம் தொடக்கப் பள்ளி</div>
+        </div>
+        <!-- Compact family cards (NO CASTE, PHONE ONLY) -->
+        <template x-for="fam in printFamiliesList" :key="fam.id">
+            <div class="print-card bg-white border-2 border-slate-800 rounded-lg p-3 text-xs">
+                <div class="bg-slate-100 p-1.5 rounded border border-slate-300 flex items-center justify-between font-bold mb-2 text-[11px]">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-slate-900 text-amber-300 px-2 py-0.5 rounded font-black text-[11px]" x-text="getFamilyTitle(fam)"></span>
+                        <span class="text-slate-700" x-text="'வீடு: ' + fam.houseNo"></span>
+                        <span class="text-slate-500 font-normal" x-text="'(' + fam.ooru + ')'"></span>
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-600 font-normal">
+                        <span x-show="fam.mobile" x-text="'📞 ' + fam.mobile"></span>
+                        <span class="font-bold text-red-700" x-text="fam.memberSlNos.length + ' நபர்'"></span>
+                    </div>
+                </div>
+                <table class="w-full text-left border-collapse print-table">
+                    <thead>
+                        <tr class="bg-slate-200 text-slate-900 font-bold">
+                            <th class="p-1 border border-slate-300 text-center w-10">வரிசை</th>
+                            <th class="p-1 border border-slate-300 w-24">EPIC</th>
+                            <th class="p-1 border border-slate-300">பெயர்</th>
+                            <th class="p-1 border border-slate-300">உறவுமுறை & பெயர்</th>
+                            <th class="p-1 border border-slate-300 text-center w-10">வயது</th>
+                            <th class="p-1 border border-slate-300 text-center w-12">பால்</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="v in getSortedFamilyMembers(fam)" :key="v.slNo">
+                            <tr :class="v.isHead ? 'bg-amber-50 font-bold' : ''">
+                                <td class="p-1 border border-slate-300 text-center font-bold" x-text="v.slNo"></td>
+                                <td class="p-1 border border-slate-300 font-mono font-bold" x-text="v.epicNo"></td>
+                                <td class="p-1 border border-slate-300 font-bold" x-text="v.name + (v.isHead ? ' (தலைவர்)' : '')"></td>
+                                <td class="p-1 border border-slate-300 text-slate-600" x-text="v.relationType + ': ' + v.relationName"></td>
+                                <td class="p-1 border border-slate-300 text-center font-semibold" x-text="v.age"></td>
+                                <td class="p-1 border border-slate-300 text-center font-semibold" x-text="v.gender"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+    </div>
+
+</main>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Add Family Modal -->
+<div x-show="showManualModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 space-y-4 max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <i data-lucide="user-plus" class="w-4 h-4 text-red-600"></i> புதிய குடும்ப உருவாக்கம்
+            </h3>
+            <button @click="showManualModal=false"><i data-lucide="x" class="w-4 h-4 text-slate-400"></i></button>
+        </div>
+
+        <div class="space-y-3 overflow-y-auto flex-grow">
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ஊர் / தெரு *</label>
+                    <select x-model="manualForm.ooru" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-amber-50 font-bold">
+                        <template x-for="ooru in oorus" :key="ooru"><option :value="ooru" x-text="ooru"></option></template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">வீட்டு எண்</label>
+                    <input type="text" x-model="manualForm.houseNo" placeholder="Ex: 1/16" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">போன் எண்</label>
+                    <input type="text" x-model="manualForm.mobile" placeholder="9876543210" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">சாதி (உள் ஆய்வுக்கு மட்டும் — பிரிண்ட்டில் வராது)</label>
+                    <input type="text" x-model="manualForm.caste" placeholder="Ex: கவுண்டர்" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-800">வரிசை எண் அல்லது பெயர் தேடி வாக்காளரை சேர்க்கவும்:</label>
+                <div class="relative">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-amber-500 absolute left-2.5 top-2.5"></i>
+                    <input type="text" x-model="manualSearchQuery" @keydown.enter.prevent="addVoterBySearch()" placeholder="வரிசை எண் அல்லது பெயர் தட்டச்சு → Enter" class="w-full pl-8 pr-20 py-2 border-2 border-amber-400 rounded-xl text-xs font-semibold outline-none">
+                    <button @click="addVoterBySearch()" class="absolute right-1 top-1 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg">+ சேர்</button>
+                </div>
+                <div class="border border-slate-200 rounded-xl max-h-36 overflow-y-auto divide-y divide-slate-100 bg-white shadow-inner">
+                    <template x-for="v in searchResultsForModal" :key="v.slNo">
+                        <div @click="toggleVoterSelection(v.slNo)" class="flex items-center justify-between p-2 cursor-pointer hover:bg-amber-50 text-xs" :class="manualForm.selectedSlNos.includes(v.slNo)?'bg-emerald-50 border-l-4 border-emerald-600 font-bold':''">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-red-600 w-7" x-text="'['+v.slNo+']'"></span>
+                                <span class="font-bold text-slate-900" x-text="v.name"></span>
+                                <span class="text-slate-400" x-text="'('+v.relationType+': '+v.relationName+')'"></span>
+                            </div>
+                            <span class="text-slate-500 text-[10px]" x-text="'வீடு:'+v.houseNo+' | '+v.age+'வயது | '+v.gender"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="manualForm.selectedSlNos.length > 0" class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
+                <div class="text-xs font-black text-slate-900 mb-2">தேர்ந்தெடுக்கப்பட்டவர்கள் (<span x-text="manualForm.selectedSlNos.length"></span> பேர்)</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs border-collapse">
+                        <thead><tr class="bg-amber-100 font-bold border-b border-amber-200">
+                            <th class="p-1.5">வரிசை</th><th class="p-1.5">EPIC</th><th class="p-1.5">பெயர்</th>
+                            <th class="p-1.5">உறவு & பெயர்</th><th class="p-1.5 text-center">வயது/பால்</th>
+                            <th class="p-1.5 text-center">தலைவர்</th><th class="p-1.5 text-right">நீக்கு</th>
+                        </tr></thead>
+                        <tbody>
+                            <template x-for="sl in manualForm.selectedSlNos" :key="sl">
+                                <template x-if="getVoterBySl(sl)">
+                                    <tr class="border-b border-slate-100">
+                                        <td class="p-1.5 font-bold" x-text="sl"></td>
+                                        <td class="p-1.5 font-mono font-bold text-blue-700" x-text="getVoterBySl(sl).epicNo"></td>
+                                        <td class="p-1.5 font-bold" x-text="getVoterBySl(sl).name"></td>
+                                        <td class="p-1.5 text-slate-500" x-text="getVoterBySl(sl).relationType+': '+getVoterBySl(sl).relationName"></td>
+                                        <td class="p-1.5 text-center" x-text="getVoterBySl(sl).age+' | '+getVoterBySl(sl).gender"></td>
+                                        <td class="p-1.5 text-center">
+                                            <button @click="manualForm.headSlNo=sl" :class="sl===manualForm.headSlNo?'bg-red-600 text-white':'bg-slate-100 hover:bg-amber-100 text-slate-700'" class="text-[10px] px-2 py-0.5 rounded font-bold">
+                                                <span x-text="sl===manualForm.headSlNo?'✓ தலைவர்':'தலைவராக்கு'"></span>
+                                            </button>
+                                        </td>
+                                        <td class="p-1.5 text-right">
+                                            <button @click="toggleVoterSelection(sl)" class="text-rose-600 font-bold text-xs px-1.5 py-0.5 rounded hover:bg-rose-50">✕</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button @click="showManualModal=false" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600">ரத்து</button>
+            <button @click="saveManualFamily()" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow">குடும்பம் சேமி</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Member Modal -->
+<div x-show="showAddMemberModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-3" x-if="targetFamilyForAddMember">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 class="text-sm font-bold text-slate-900">+ உறுப்பினர் சேர் — <span x-text="getFamilyTitle(targetFamilyForAddMember)"></span></h3>
+            <button @click="showAddMemberModal=false"><i data-lucide="x" class="w-4 h-4 text-slate-400"></i></button>
+        </div>
+        <input type="text" x-model="addMemberSearchQuery" placeholder="வரிசை எண் அல்லது பெயர்..." class="w-full border border-slate-300 rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        <div class="border border-slate-200 rounded-xl max-h-52 overflow-y-auto divide-y divide-slate-100 bg-slate-50">
+            <template x-for="v in searchResultsForAddMember" :key="v.slNo">
+                <div class="flex items-center justify-between p-2 text-xs hover:bg-white">
+                    <div>
+                        <span class="font-bold text-red-600" x-text="'['+v.slNo+'] '"></span>
+                        <span class="font-bold text-slate-900" x-text="v.name"></span>
+                        <span class="text-slate-400 ml-1" x-text="'('+v.age+'வயது | '+v.gender+')'"></span>
+                    </div>
+                    <button @click="addMemberToTargetFamily(v.slNo); showAddMemberModal=false;" class="bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-1 rounded">+ சேர்</button>
+                </div>
+            </template>
+        </div>
+        <div class="flex justify-end pt-2 border-t border-slate-200">
+            <button @click="showAddMemberModal=false" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">மூடு</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Family Modal -->
+<div x-show="showEditFamilyModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-3" x-if="editingFamily">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 class="text-sm font-bold text-slate-900" x-text="'குடும்ப திருத்தம் — ' + editingFamily.id"></h3>
+            <button @click="showEditFamilyModal=false"><i data-lucide="x" class="w-4 h-4 text-slate-400"></i></button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ஊர் / தெரு</label>
+                <select x-model="editingFamily.ooru" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                    <template x-for="ooru in oorus" :key="ooru"><option :value="ooru" x-text="ooru"></option></template>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">சாதி (உள் ஆய்வு)</label>
+                    <input type="text" x-model="editingFamily.caste" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">போன் எண்</label>
+                    <input type="text" x-model="editingFamily.mobile" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">குடும்பத் தலைவர்</label>
+                <select x-model.number="editingFamily.headSlNo" class="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-amber-50 font-bold">
+                    <template x-for="sl in editingFamily.memberSlNos" :key="sl">
+                        <option :value="sl" x-text="getVoterBySl(sl) ? getVoterBySl(sl).name + ' (வரிசை: ' + sl + ')' : sl"></option>
+                    </template>
+                </select>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button @click="showEditFamilyModal=false" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600">ரத்து</button>
+            <button @click="saveEditFamily()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow">சேமி</button>
+        </div>
+    </div>
+</div>
+
+<!-- Visit Notes Modal -->
+<div x-show="showNotesModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 no-print">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h3 class="text-sm font-bold text-slate-900">📝 வருகை குறிப்பு</h3>
+            <button @click="showNotesModal=false"><i data-lucide="x" class="w-4 h-4 text-slate-400"></i></button>
+        </div>
+        <textarea x-model="notesText" rows="4" placeholder="'வீட்டில் இல்லை', 'ஆதரவு தெரிவித்தனர்', 'மீண்டும் வர வேண்டும்'..." class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500 resize-none"></textarea>
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button @click="showNotesModal=false" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600">ரத்து</button>
+            <button @click="saveNotes()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow">குறிப்பு சேமி</button>
+        </div>
+    </div>
+</div>
+
+<script src="voters_data.js"></script>
+<script src="app.js"></script>
+<script>
+    document.addEventListener('alpine:initialized', () => { lucide.createIcons(); });
+    // PWA Service Worker registration
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(() => console.log('SW registered'));
+    }
+</script>
+</body>
+</html>
